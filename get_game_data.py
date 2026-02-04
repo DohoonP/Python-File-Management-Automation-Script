@@ -54,58 +54,85 @@ def find_all_game_paths(source):
 def get_name_from_paths(paths, to_strip):
     new_names = []
     for path in paths:
+        # os.path.split divides a path into the parent directory and the folder name (tail)
+        # ex: "C:\data\game1" becomes ("C:\data", "game1")
+        # we use "_" variable to indicate we don't care about the parent path, we only want the folder name (dir_name)
         _, dir_name = os.path.split(path)
+        
+        # replace the part we don't want (to_strip) with an empty string
+        # ex: "simon_says_game" becomes "simon_says"
         new_dir_name = dir_name.replace(to_strip, "")
+        
+        # add the clean name to our list
         new_names.append(new_dir_name)
 
     return new_names
 
-
 def create_dir(path):
+    # checks if the directory already exists to avoid errors
     if not os.path.exists(path):
-        os.mkdir(path)
+        os.mkdir(path)  # creates the folder if it's missing
 
 
 def copy_and_overwrite(source, dest):
+    # if the destination folder already exists, we delete it first
+    # this ensures we are doing a fresh copy and not mixing old files with new ones
     if os.path.exists(dest):
-        shutil.rmtree(dest)
+        shutil.rmtree(dest) # rmtree = remove tree (delete directory and everything inside it)
+    
+    # copies the entire directory tree from source to destination
     shutil.copytree(source, dest)
 
 
 def make_json_metadata_file(path, game_dirs):
+    # create a Python dictionary (key-value pairs) to hold our data
     data = {
         "gameNames": game_dirs,
-        "numberOfGames": len(game_dirs)
+        "numberOfGames": len(game_dirs) # len() counts items in the list
     }
 
+    # open the file at 'path' in "w" (write) mode
+    # 'with' automatically closes the file when we are done
     with open(path, "w") as f:
-        json.dump(data, f)
+        json.dump(data, f) # takes the python dictionary and writes it as JSON text into the file
 
 
 def compile_game_code(path):
     code_file_name = None
+    
+    # look through the files in the new game directory to find the Go code
     for root, dirs, files in os.walk(path):
         for file in files:
+            # check if the file ends with .go
             if file.endswith(GAME_CODE_EXTENSION):
                 code_file_name = file
-                break
+                break # found the code file, stop looking in this folder
+        
+        break # stop looking in subdirectories
 
-        break
-
+    # if we didn't find a .go file, just exit the function
     if code_file_name is None:
         return
 
+    # construct the command list: ["go", "build", "game_name.go"]
     command = GAME_COMPILE_COMMAND + [code_file_name]
     run_command(command, path)
 
 
 def run_command(command, path):
-    cwd = os.getcwd()
+    # save the current location so we can come back later
+    cwd = os.getcwd() 
+    
+    # change directory (cd) into the game folder so the compiler can find the files
     os.chdir(path)
 
+    # run the terminal command
+    # stdout=PIPE / stdin=PIPE: captures the output and input channels
+    # universal_newlines=True: makes sure the output is treated as text, not bytes
     result = run(command, stdout=PIPE, stdin=PIPE, universal_newlines=True)
     print("compile result", result)
 
+    # go back to the original directory (clean up)
     os.chdir(cwd)
 
 
